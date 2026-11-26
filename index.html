@@ -1,0 +1,2154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulador Presencial de Mesa Examinadora - Tribunal Universitario</title>
+    <style>
+        /* =====================================================================
+           1. VARIABLES DE ESCENARIOS UNIVERSITARIOS (7 ENTORNOS OFFLINE)
+           ===================================================================== */
+        :root, [data-scene="despacho-biblioteca"] {
+            --bg-top: #261c15;
+            --bg-mid: #3e2d21;
+            --bg-bot: #140e0a;
+            --accent: #d97706;
+            --accent-hover: #b45309;
+            --accent-glow: rgba(217, 119, 6, 0.38);
+        }
+        [data-scene="aula-magna"] {
+            --bg-top: #14222c;
+            --bg-mid: #223848;
+            --bg-bot: #0b1319;
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            --accent-glow: rgba(2, 132, 199, 0.38);
+        }
+        [data-scene="mesa-ventanal"] {
+            --bg-top: #1f3140;
+            --bg-mid: #345269;
+            --bg-bot: #101b24;
+            --accent: #0ea5e9;
+            --accent-hover: #0284c7;
+            --accent-glow: rgba(14, 165, 233, 0.38);
+        }
+        [data-scene="laboratorio-anfiteatro"] {
+            --bg-top: #23161d;
+            --bg-mid: #3b232f;
+            --bg-bot: #110a0e;
+            --accent: #be123c;
+            --accent-hover: #9f1239;
+            --accent-glow: rgba(190, 18, 60, 0.38);
+        }
+        [data-scene="sala-profesores"] {
+            --bg-top: #182821;
+            --bg-mid: #274236;
+            --bg-bot: #0d1712;
+            --accent: #059669;
+            --accent-hover: #047857;
+            --accent-glow: rgba(5, 150, 105, 0.38);
+        }
+        [data-scene="catedra-clasica"] {
+            --bg-top: #231914;
+            --bg-mid: #382820;
+            --bg-bot: #120c09;
+            --accent: #b45309;
+            --accent-hover: #92400e;
+            --accent-glow: rgba(180, 83, 9, 0.38);
+        }
+        [data-scene="box-evaluacion"] {
+            --bg-top: #1b2436;
+            --bg-mid: #2c3a57;
+            --bg-bot: #0e131d;
+            --accent: #4f46e5;
+            --accent-hover: #4338ca;
+            --accent-glow: rgba(79, 70, 229, 0.38);
+        }
+
+        /* =====================================================================
+           2. RESET Y ESTRUCTURA RESPONSIVE (IPAD SAFARI & ESCRITORIO)
+           ===================================================================== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: radial-gradient(circle at 50% 35%, var(--bg-mid) 0%, var(--bg-top) 58%, var(--bg-bot) 100%);
+            color: #f8fafc;
+            transition: background 0.55s ease;
+        }
+
+        /* =====================================================================
+           3. ESCENARIO INMERSIVO A PANTALLA COMPLETA
+           ===================================================================== */
+        .stage-root {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .backdrop-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .character-viewport {
+            position: relative;
+            z-index: 10;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        body.session-active .character-viewport {
+            transform: scale(1.04) translateY(4px);
+        }
+
+        #character-svg {
+            width: min(98vw, 760px);
+            height: min(96vh, 760px);
+            overflow: visible;
+            filter: drop-shadow(0 22px 42px rgba(0, 0, 0, 0.56));
+        }
+
+        /* =====================================================================
+           4. PANTALLA DE CONFIGURACIÓN INICIAL (SE OCULTA AL INICIAR EXAMEN)
+           ===================================================================== */
+        .setup-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            background: linear-gradient(180deg, rgba(8, 12, 20, 0.82) 0%, rgba(8, 12, 20, 0.54) 55%, rgba(8, 12, 20, 0.88) 100%);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 14px 20px;
+            overflow-y: auto;
+            transition: opacity 0.36s ease, visibility 0.36s ease;
+        }
+
+        body.session-active .setup-screen {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .setup-card {
+            width: 100%;
+            max-width: 780px;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 24px;
+            padding: 18px 20px;
+            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.55);
+        }
+
+        .setup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+        }
+
+        .brand-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 6px 18px var(--accent-glow);
+            flex-shrink: 0;
+        }
+
+        .brand-title {
+            font-size: 1.03rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            color: #ffffff;
+        }
+
+        .brand-subtitle {
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            margin-top: 2px;
+        }
+
+        .test-voice-btn {
+            background: rgba(255, 255, 255, 0.09);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            border-radius: 12px;
+            padding: 9px 14px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.15s ease;
+        }
+        .test-voice-btn:hover {
+            background: var(--accent);
+        }
+        .test-voice-btn:active {
+            transform: scale(0.97);
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        @media (max-width: 640px) {
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .control-box {
+            background: rgba(2, 6, 23, 0.44);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 16px;
+            padding: 10px 12px;
+        }
+
+        .control-box.span-full {
+            grid-column: 1 / -1;
+        }
+
+        .control-label {
+            display: block;
+            font-size: 0.69rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #cbd5e1;
+            margin-bottom: 7px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .pill-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.11);
+            color: #e2e8f0;
+            font-size: 0.76rem;
+            font-weight: 600;
+            padding: 10px 6px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            text-align: center;
+        }
+
+        .pill-btn:hover {
+            background: rgba(255, 255, 255, 0.13);
+        }
+
+        .pill-btn.active {
+            background: var(--accent);
+            border-color: rgba(255, 255, 255, 0.36);
+            color: #ffffff;
+            box-shadow: 0 4px 14px var(--accent-glow);
+        }
+
+        .select-field {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.94);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 12px;
+            padding: 9px 12px;
+            font-size: 0.79rem;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .voice-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .voice-row-info {
+            flex: 1;
+            min-width: 220px;
+        }
+
+        .voice-row-sub {
+            font-size: 0.71rem;
+            color: #94a3b8;
+            display: block;
+            margin-top: 2px;
+            line-height: 1.35;
+        }
+
+        .voice-tip {
+            display: none;
+            margin-top: 7px;
+            background: rgba(217, 119, 6, 0.16);
+            border: 1px solid rgba(251, 191, 36, 0.34);
+            color: #fde68a;
+            border-radius: 10px;
+            padding: 6px 10px;
+            font-size: 0.71rem;
+            line-height: 1.35;
+        }
+
+        .voice-tip.visible {
+            display: block;
+        }
+
+        .voice-row .select-field {
+            max-width: 310px;
+        }
+
+        .setup-footer {
+            width: 100%;
+            max-width: 560px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .profile-pill {
+            background: rgba(15, 23, 42, 0.90);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 999px;
+            padding: 7px 16px;
+            font-size: 0.77rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            text-align: center;
+        }
+
+        .start-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            color: #ffffff;
+            font-size: 0.96rem;
+            font-weight: 800;
+            padding: 15px 24px;
+            border-radius: 18px;
+            cursor: pointer;
+            box-shadow: 0 12px 28px rgba(5, 150, 105, 0.42);
+            transition: transform 0.15s ease, filter 0.2s ease;
+        }
+
+        .start-btn:hover {
+            filter: brightness(1.08);
+        }
+
+        .start-btn:active {
+            transform: scale(0.985);
+        }
+
+        /* =====================================================================
+           5. CONTROLES DISCRETOS EN PANTALLA COMPLETA
+           ===================================================================== */
+        .hud-left, .hud-right {
+            display: none;
+            position: fixed;
+            top: 16px;
+            z-index: 35;
+            align-items: center;
+            gap: 8px;
+        }
+
+        body.session-active .hud-left,
+        body.session-active .hud-right {
+            display: flex;
+        }
+
+        .hud-left {
+            left: 16px;
+            background: rgba(2, 6, 23, 0.76);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-size: 0.76rem;
+            color: #f1f5f9;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        .hud-right {
+            right: 16px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .mic-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+            transition: transform 0.14s ease, background 0.14s ease;
+        }
+
+        .mic-dot.active-voice {
+            background: #38bdf8;
+            box-shadow: 0 0 14px #38bdf8;
+            transform: scale(1.45);
+        }
+
+        .hud-btn {
+            background: rgba(2, 6, 23, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: #ffffff;
+            border-radius: 13px;
+            padding: 9px 14px;
+            font-size: 0.77rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+            transition: background 0.18s ease, transform 0.14s ease;
+        }
+
+        .hud-btn:hover {
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+        .hud-btn.danger {
+            background: rgba(185, 28, 28, 0.90);
+            border-color: rgba(254, 202, 202, 0.28);
+        }
+
+        .hud-btn.danger:hover {
+            background: #dc2626;
+        }
+
+        /* =====================================================================
+           6. GLOBO DE DIÁLOGO FLOTANTE
+           ===================================================================== */
+        .bubble-container {
+            position: fixed;
+            top: 68px;
+            right: max(18px, calc(50% - 415px));
+            z-index: 32;
+            max-width: 330px;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(10px) scale(0.95);
+            transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .bubble-container.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .speech-card {
+            position: relative;
+            background: rgba(255, 253, 249, 0.96);
+            color: #0f172a;
+            padding: 13px 16px;
+            border-radius: 18px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            line-height: 1.38;
+            box-shadow: 0 18px 36px rgba(0, 0, 0, 0.42);
+            border: 1px solid rgba(255, 255, 255, 0.85);
+        }
+
+        .speech-card::before {
+            content: "";
+            position: absolute;
+            left: -10px;
+            top: 20px;
+            border-width: 9px 11px 9px 0;
+            border-style: solid;
+            border-color: transparent rgba(255, 253, 249, 0.96) transparent transparent;
+        }
+
+        .speech-author {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #92400e;
+            margin-bottom: 3px;
+        }
+
+        @media (max-width: 680px) {
+            .bubble-container {
+                top: 66px;
+                left: 14px;
+                right: 14px;
+                max-width: none;
+            }
+            .speech-card::before {
+                display: none;
+            }
+        }
+
+        /* =====================================================================
+           7. MODAL DE VEREDICTO FINAL DINÁMICO
+           ===================================================================== */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 55;
+            background: rgba(2, 6, 23, 0.84);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .modal-box {
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 26px;
+            max-width: 450px;
+            width: 100%;
+            padding: 24px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65);
+            text-align: center;
+        }
+
+        .verdict-badge {
+            display: inline-block;
+            background: rgba(245, 158, 11, 0.18);
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            color: #fde68a;
+            font-size: 0.69rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 5px 12px;
+            border-radius: 999px;
+            margin-bottom: 10px;
+        }
+
+        .verdict-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 12px;
+        }
+
+        .verdict-quote {
+            background: rgba(2, 6, 23, 0.72);
+            border-left: 4px solid #f59e0b;
+            border-radius: 14px;
+            padding: 14px 15px;
+            font-size: 0.90rem;
+            font-style: italic;
+            line-height: 1.48;
+            color: #f1f5f9;
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .stat-card {
+            background: rgba(2, 6, 23, 0.62);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 14px;
+            padding: 10px 6px;
+        }
+
+        .stat-val {
+            font-size: 1.02rem;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .stat-lbl {
+            font-size: 0.68rem;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .modal-close-btn {
+            width: 100%;
+            background: #059669;
+            border: none;
+            color: #ffffff;
+            font-size: 0.88rem;
+            font-weight: 700;
+            padding: 13px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.18s ease;
+        }
+
+        .modal-close-btn:hover {
+            background: #047857;
+        }
+
+        /* =====================================================================
+           8. ANIMACIONES ORGÁNICAS ("VIDA PROPIA")
+           ===================================================================== */
+        @keyframes chestBreathe {
+            0%, 100% { transform: translateY(0px) scaleY(1); }
+            50% { transform: translateY(-2.5px) scaleY(1.012); }
+        }
+
+        @keyframes nodYesAnim {
+            0% { transform: translate(var(--hx, 0px), 0px) rotate(var(--hr, 0deg)); }
+            22% { transform: translate(var(--hx, 0px), 10px) rotate(var(--hr, 0deg)); }
+            46% { transform: translate(var(--hx, 0px), -2px) rotate(var(--hr, 0deg)); }
+            72% { transform: translate(var(--hx, 0px), 9px) rotate(var(--hr, 0deg)); }
+            100% { transform: translate(var(--hx, 0px), 0px) rotate(var(--hr, 0deg)); }
+        }
+
+        @keyframes shakeNoAnim {
+            0% { transform: translate(0px, 0px) rotate(0deg); }
+            18% { transform: translate(-12px, 0px) rotate(-5deg); }
+            40% { transform: translate(12px, 0px) rotate(5deg); }
+            62% { transform: translate(-9px, 0px) rotate(-3.5deg); }
+            82% { transform: translate(8px, 0px) rotate(3deg); }
+            100% { transform: translate(0px, 0px) rotate(0deg); }
+        }
+
+        @keyframes steamFloat {
+            0% { transform: translateY(0px) scale(0.9); opacity: 0; }
+            35% { opacity: 0.65; }
+            100% { transform: translateY(-26px) scale(1.25); opacity: 0; }
+        }
+
+        @keyframes penWriteAnim {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(5px, -3px) rotate(6deg); }
+            50% { transform: translate(10px, 1px) rotate(-5deg); }
+            75% { transform: translate(4px, 2px) rotate(5deg); }
+        }
+
+        @keyframes sipCupAnim {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            34% { transform: translate(62px, -118px) rotate(22deg); }
+            68% { transform: translate(64px, -120px) rotate(25deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        @keyframes raiseCalmHand {
+            0% { transform: translate(0, 0); opacity: 0; }
+            20% { transform: translate(-18px, -84px); opacity: 1; }
+            80% { transform: translate(-18px, -88px); opacity: 1; }
+            100% { transform: translate(0, 0); opacity: 0; }
+        }
+
+        .torso-group {
+            transform-origin: 300px 430px;
+            animation: chestBreathe 4.2s ease-in-out infinite;
+        }
+
+        #head-group {
+            transform-origin: 300px 265px;
+            transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        #head-group.do-yes {
+            animation: nodYesAnim 1.15s ease-in-out;
+        }
+
+        #head-group.do-no {
+            animation: shakeNoAnim 1.15s ease-in-out;
+        }
+
+        #pupil-l, #pupil-r {
+            transition: transform 0.25s ease-out;
+        }
+
+        .steam-a { animation: steamFloat 3s ease-out infinite; }
+        .steam-b { animation: steamFloat 3s ease-out 1s infinite; }
+        .steam-c { animation: steamFloat 3s ease-out 2s infinite; }
+
+        .writing-now {
+            animation: penWriteAnim 0.52s ease-in-out infinite;
+        }
+
+        .drinking-now {
+            transform-origin: 155px 445px;
+            animation: sipCupAnim 3.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .calming-now {
+            transform-origin: 420px 450px;
+            animation: raiseCalmHand 2.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+    </style>
+</head>
+<body data-scene="despacho-biblioteca">
+
+    <!-- =====================================================================
+         ESCENARIO INMERSIVO A PANTALLA COMPLETA
+         ===================================================================== -->
+    <div class="stage-root">
+        <svg class="backdrop-layer" id="backdrop-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice"></svg>
+
+        <div class="character-viewport">
+            <!-- ViewBox 0 0 600 620 con cabello completamente encuadrado sin cortes -->
+            <svg id="character-svg" viewBox="0 0 600 620">
+                <defs>
+                    <radialGradient id="skinGrad" cx="48%" cy="38%" r="58%">
+                        <stop offset="0%" stop-color="#fde6d5"/>
+                        <stop offset="65%" stop-color="#f2c4a4"/>
+                        <stop offset="100%" stop-color="#d89e78"/>
+                    </radialGradient>
+                    <linearGradient id="neckGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#c98c65"/>
+                        <stop offset="100%" stop-color="#e8b694"/>
+                    </linearGradient>
+                    <linearGradient id="deskTopGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#7c4a2d"/>
+                        <stop offset="100%" stop-color="#53301c"/>
+                    </linearGradient>
+                    <linearGradient id="deskFrontGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#452716"/>
+                        <stop offset="100%" stop-color="#24130a"/>
+                    </linearGradient>
+                    <filter id="softShadow" x="-15%" y="-15%" width="130%" height="130%">
+                        <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
+                    </filter>
+                </defs>
+
+                <!-- Respaldo de silla -->
+                <rect x="175" y="215" width="250" height="240" rx="42" fill="#1c1917" stroke="#292524" stroke-width="3.5"/>
+                <rect x="192" y="232" width="216" height="215" rx="32" fill="#262220"/>
+
+                <!-- Capa trasera de cabello -->
+                <g id="hair-back"></g>
+
+                <!-- Torso con respiración continua -->
+                <g class="torso-group">
+                    <path d="M 268 265 L 268 325 L 332 325 L 332 265 Z" fill="url(#neckGrad)"/>
+                    <g id="outfit-group"></g>
+                </g>
+
+                <!-- Cabeza articulada -->
+                <g id="head-group">
+                    <!-- Orejas -->
+                    <ellipse cx="226" cy="200" rx="12" ry="20" fill="#e6b390" stroke="#c88d67" stroke-width="1.8"/>
+                    <ellipse cx="374" cy="200" rx="12" ry="20" fill="#e6b390" stroke="#c88d67" stroke-width="1.8"/>
+
+                    <!-- Aros femeninos -->
+                    <g id="earrings-group" style="display:none;">
+                        <circle cx="225" cy="220" r="4.2" fill="#fbbf24" stroke="#b45309" stroke-width="1.2"/>
+                        <circle cx="375" cy="220" r="4.2" fill="#fbbf24" stroke="#b45309" stroke-width="1.2"/>
+                    </g>
+
+                    <!-- Rostro -->
+                    <path id="face-contour" d="M 232 152 C 232 98, 368 98, 368 152 C 368 228, 346 272, 300 272 C 254 272, 232 228, 232 152 Z"
+                          fill="url(#skinGrad)" stroke="#cfa07e" stroke-width="1.8"/>
+
+                    <!-- Rubor mejillas -->
+                    <g id="cheeks-group" opacity="0.22">
+                        <ellipse cx="258" cy="215" rx="16" ry="8.5" fill="#e11d48"/>
+                        <ellipse cx="342" cy="215" rx="16" ry="8.5" fill="#e11d48"/>
+                    </g>
+
+                    <!-- Arrugas según edad -->
+                    <g id="wrinkles-group"></g>
+
+                    <!-- Barba suave -->
+                    <g id="beard-group"></g>
+
+                    <!-- Ojos -->
+                    <g id="eyes-group">
+                        <g transform="translate(266, 188)">
+                            <ellipse cx="0" cy="0" rx="18" ry="11" fill="#ffffff" stroke="#64748b" stroke-width="1.5"/>
+                            <g id="pupil-l">
+                                <circle cx="0" cy="0" r="7.4" fill="#3b2f2f"/>
+                                <circle cx="0" cy="0" r="3.8" fill="#0f172a"/>
+                                <circle cx="-2.4" cy="-2.4" r="1.9" fill="#ffffff"/>
+                            </g>
+                            <g id="lashes-l" style="display:none;" stroke="#1e293b" stroke-width="2" stroke-linecap="round">
+                                <line x1="-16" y1="-3" x2="-22" y2="-8"/>
+                                <line x1="-11" y1="-7" x2="-15" y2="-12"/>
+                                <line x1="-4" y1="-9" x2="-6" y2="-15"/>
+                            </g>
+                            <ellipse id="lid-l" cx="0" cy="0" rx="19" ry="12" fill="#e8b896" opacity="0"/>
+                        </g>
+
+                        <g transform="translate(334, 188)">
+                            <ellipse cx="0" cy="0" rx="18" ry="11" fill="#ffffff" stroke="#64748b" stroke-width="1.5"/>
+                            <g id="pupil-r">
+                                <circle cx="0" cy="0" r="7.4" fill="#3b2f2f"/>
+                                <circle cx="0" cy="0" r="3.8" fill="#0f172a"/>
+                                <circle cx="-2.4" cy="-2.4" r="1.9" fill="#ffffff"/>
+                            </g>
+                            <g id="lashes-r" style="display:none;" stroke="#1e293b" stroke-width="2" stroke-linecap="round">
+                                <line x1="16" y1="-3" x2="22" y2="-8"/>
+                                <line x1="11" y1="-7" x2="15" y2="-12"/>
+                                <line x1="4" y1="-9" x2="6" y2="-15"/>
+                            </g>
+                            <ellipse id="lid-r" cx="0" cy="0" rx="19" ry="12" fill="#e8b896" opacity="0"/>
+                        </g>
+                    </g>
+
+                    <!-- Cejas -->
+                    <path id="brow-l" d="M 246 168 Q 266 162 285 168" fill="none" stroke="#334155" stroke-width="4" stroke-linecap="round"/>
+                    <path id="brow-r" d="M 315 168 Q 334 162 354 168" fill="none" stroke="#334155" stroke-width="4" stroke-linecap="round"/>
+
+                    <!-- Lentes (50 y 65 años) -->
+                    <g id="glasses-group"></g>
+
+                    <!-- Nariz -->
+                    <path d="M 300 186 L 295 215 Q 300 220 306 215" fill="none" stroke="#bd835e" stroke-width="2.2" stroke-linecap="round"/>
+
+                    <!-- Boca -->
+                    <g id="mouth-rig">
+                        <path id="mouth-line" d="M 280 240 Q 300 243 320 240" fill="none" stroke="#88392a" stroke-width="3.5" stroke-linecap="round"/>
+                        <ellipse id="mouth-cavity" cx="300" cy="242" rx="12" ry="0" fill="#5c1d16"/>
+                    </g>
+
+                    <!-- Cabello frontal perfectamente encuadrado sin cortes -->
+                    <g id="hair-front"></g>
+                </g>
+
+                <!-- ===========================================================
+                     ESCRITORIO DE MESA EXAMINADORA
+                     =========================================================== -->
+                <g id="desk-layer">
+                    <rect x="20" y="452" width="560" height="22" rx="8" fill="url(#deskTopGrad)" stroke="#3b2010" stroke-width="1.8" filter="url(#softShadow)"/>
+                    <rect x="38" y="474" width="524" height="146" fill="url(#deskFrontGrad)"/>
+                    <rect x="60" y="492" width="480" height="110" rx="7" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1.8"/>
+
+                    <!-- Pila de tratados universitarios -->
+                    <g id="books-stack" transform="translate(435, 404)" filter="url(#softShadow)">
+                        <rect x="0" y="32" width="115" height="15" rx="3.5" fill="#1e3a8a" stroke="#172554" stroke-width="1.4"/>
+                        <rect x="5" y="35" width="105" height="8" rx="2" fill="#f8fafc" opacity="0.88"/>
+                        <rect x="8" y="17" width="102" height="15" rx="3.5" fill="#7f1d1d" stroke="#450a0a" stroke-width="1.4"/>
+                        <rect x="13" y="20" width="92" height="8" rx="2" fill="#fef3c7" opacity="0.88"/>
+                        <rect x="15" y="2" width="88" height="15" rx="3.5" fill="#065f46" stroke="#022c22" stroke-width="1.4"/>
+                    </g>
+
+                    <!-- Planilla de acta de examen -->
+                    <g id="notes-pad" transform="translate(238, 428)" filter="url(#softShadow)">
+                        <polygon points="8,23 148,23 164,3 24,3" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.4"/>
+                        <line x1="32" y1="8" x2="140" y2="8" stroke="#94a3b8" stroke-width="1.8"/>
+                        <line x1="27" y1="13" x2="120" y2="13" stroke="#cbd5e1" stroke-width="1.8"/>
+                        <line x1="22" y1="18" x2="102" y2="18" stroke="#cbd5e1" stroke-width="1.8"/>
+                    </g>
+
+                    <!-- Mano derecha + Lapicera -->
+                    <g id="pen-hand">
+                        <ellipse cx="395" cy="447" rx="19" ry="12" fill="#e9ba98" stroke="#c58c66" stroke-width="1.8"/>
+                        <line x1="385" y1="449" x2="358" y2="434" stroke="#0f172a" stroke-width="4.8" stroke-linecap="round"/>
+                        <line id="pen-tip" x1="358" y1="434" x2="351" y2="430" stroke="#f59e0b" stroke-width="3.6" stroke-linecap="round"/>
+                    </g>
+
+                    <!-- Mano izquierda + Taza de té humeante -->
+                    <g id="cup-hand">
+                        <path class="steam-a" d="M 134 401 Q 129 386 137 374" fill="none" stroke="rgba(255,255,255,0.68)" stroke-width="2.3" stroke-linecap="round"/>
+                        <path class="steam-b" d="M 146 399 Q 152 384 144 371" fill="none" stroke="rgba(255,255,255,0.58)" stroke-width="2.3" stroke-linecap="round"/>
+                        <path class="steam-c" d="M 157 402 Q 153 388 159 376" fill="none" stroke="rgba(255,255,255,0.48)" stroke-width="2" stroke-linecap="round"/>
+
+                        <ellipse cx="146" cy="450" rx="34" ry="7.5" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.4"/>
+                        <path d="M 124 411 L 168 411 L 163 446 Q 146 452 129 446 Z" fill="#fffbeb" stroke="#cbd5e1" stroke-width="1.8"/>
+                        <path d="M 168 419 C 182 419, 182 438, 165 438" fill="none" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round"/>
+                        <ellipse cx="179" cy="444" rx="18" ry="11.5" fill="#e9ba98" stroke="#c58c66" stroke-width="1.8"/>
+                    </g>
+
+                    <!-- Mano levantada suave ("Baja el ritmo / Respira tranquilo") -->
+                    <g id="calm-hand" style="opacity:0; pointer-events:none;">
+                        <rect x="406" y="408" width="34" height="39" rx="13" fill="#f1c5a5" stroke="#c58c66" stroke-width="1.8"/>
+                        <rect x="406" y="387" width="6.5" height="25" rx="3.2" fill="#f1c5a5" stroke="#c58c66" stroke-width="1.4"/>
+                        <rect x="414" y="382" width="6.5" height="29" rx="3.2" fill="#f1c5a5" stroke="#c58c66" stroke-width="1.4"/>
+                        <rect x="422" y="384" width="6.5" height="27" rx="3.2" fill="#f1c5a5" stroke="#c58c66" stroke-width="1.4"/>
+                        <rect x="430" y="390" width="6.5" height="23" rx="3.2" fill="#f1c5a5" stroke="#c58c66" stroke-width="1.4"/>
+                    </g>
+                </g>
+            </svg>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         GLOBO DE DIÁLOGO FLOTANTE
+         ===================================================================== -->
+    <div class="bubble-container" id="bubble-wrap">
+        <div class="speech-card">
+            <span class="speech-author" id="bubble-author">Tribunal Examinador</span>
+            <span id="bubble-text">Bueno, lo escucho. Cuando quiera empiece...</span>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         HUD DISCRETO EN MODO PANTALLA COMPLETA
+         ===================================================================== -->
+    <div class="hud-left">
+        <span class="mic-dot" id="mic-dot"></span>
+        <span id="hud-state-text">Mesa escuchando...</span>
+        <span style="opacity:0.4;">·</span>
+        <strong id="hud-clock" style="font-variant-numeric:tabular-nums;">00:00</strong>
+    </div>
+
+    <div class="hud-right">
+        <button id="btn-pause-session" class="hud-btn" onclick="togglePauseSession()">⏸️ Pausa / Respiro</button>
+        <button class="hud-btn danger" onclick="endSession()">⏹️ Finalizar Examen</button>
+    </div>
+
+    <!-- =====================================================================
+         PANTALLA DE CONFIGURACIÓN INICIAL (SOLO LOS 6 DOCENTES)
+         ===================================================================== -->
+    <div class="setup-screen" id="setup-screen">
+        <div class="setup-card">
+            <div class="setup-header">
+                <div class="brand-row">
+                    <div class="brand-badge">🎓</div>
+                    <div>
+                        <h1 class="brand-title">Simulador Presencial de Mesa Examinadora - Tribunal Universitario</h1>
+                        <p class="brand-subtitle">100% offline · 6 docentes calibrados para Safari en iPadOS y escritorio · Escucha activa</p>
+                    </div>
+                </div>
+                <button class="test-voice-btn" onclick="testCurrentProfileVoice()">🔊 Probar Voz del Docente</button>
+            </div>
+
+            <div class="controls-grid">
+                <!-- 1. Género del Docente -->
+                <div class="control-box">
+                    <span class="control-label">1. Género del Docente</span>
+                    <div class="btn-group">
+                        <button id="gender-male-btn" class="pill-btn active" onclick="selectGender('hombre')">👨 Docente Hombre</button>
+                        <button id="gender-female-btn" class="pill-btn" onclick="selectGender('mujer')">👩 Docente Mujer</button>
+                    </div>
+                </div>
+
+                <!-- 2. Edad y Jerarquía Académica -->
+                <div class="control-box">
+                    <span class="control-label">2. Edad y Jerarquía</span>
+                    <div class="btn-group">
+                        <button id="age-38-btn" class="pill-btn" onclick="selectAge(38)">38 años (Adjunto)</button>
+                        <button id="age-50-btn" class="pill-btn active" onclick="selectAge(50)">50 años (Asociado)</button>
+                        <button id="age-65-btn" class="pill-btn" onclick="selectAge(65)">65 años (Titular)</button>
+                    </div>
+                </div>
+
+                <!-- 3. Escenario Universitario (7 opciones) -->
+                <div class="control-box span-full">
+                    <span class="control-label">3. Escenario Universitario</span>
+                    <select id="scene-selector" class="select-field" onchange="selectScene(this.value)">
+                        <option value="despacho-biblioteca">🪵 Despacho con Biblioteca</option>
+                        <option value="aula-magna">🏛️ Aula Magna</option>
+                        <option value="mesa-ventanal">🪟 Mesa con Ventanal</option>
+                        <option value="laboratorio-anfiteatro">🔬 Laboratorio / Anfiteatro</option>
+                        <option value="sala-profesores">☕ Sala de Profesores</option>
+                        <option value="catedra-clasica">📚 Cátedra Clásica</option>
+                        <option value="box-evaluacion">📝 Box de Evaluación</option>
+                    </select>
+                </div>
+
+                <!-- 4. Voz del Sistema (iPad / PC) -->
+                <div class="control-box span-full">
+                    <div class="voice-row">
+                        <div class="voice-row-info">
+                            <span class="control-label" style="margin-bottom:0;">4. Voz del sistema (iPad / PC)</span>
+                            <span class="voice-row-sub">Asigna voces masculinas y femeninas según edad y respeta el idioma nativo en Safari</span>
+                        </div>
+                        <select id="system-voice-selector" class="select-field" onchange="selectManualVoice(this.value)">
+                            <option value="auto">Automática según docente</option>
+                        </select>
+                    </div>
+                    <div id="ipad-voice-tip" class="voice-tip">
+                        Nota para iPad: tu dispositivo tiene instalada solo una voz femenina en español (se aplicará tono grave automático). Si deseas una voz masculina nativa adicional, puedes activarla en <strong>Ajustes &gt; Accesibilidad &gt; Contenido leído &gt; Voces &gt; Español</strong> (por ejemplo <em>Jorge</em> o <em>Grandpa</em>).
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="setup-footer">
+            <div class="profile-pill" id="profile-summary">
+                Prof. Dr. Ricardo Martínez · Docente Asociado (50 años)
+            </div>
+            <button class="start-btn" onclick="launchSession()">
+                🎙️ Iniciar Examen en Pantalla Completa
+            </button>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL DE VEREDICTO FINAL DINÁMICO
+         ===================================================================== -->
+    <div id="verdict-modal" class="modal-backdrop">
+        <div class="modal-box">
+            <span id="verdict-tag" class="verdict-badge">Devolución de Mesa</span>
+            <h2 id="verdict-heading" class="verdict-title">Examen Finalizado</h2>
+            <div id="verdict-quote" class="verdict-quote">
+                «Me gustó el recorrido, se nota que lo trabajaste, aunque todavía faltan afinar algunos detalles para cerrarlo redondo.»
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div id="stat-duration" class="stat-val">00:00</div>
+                    <div class="stat-lbl">Duración</div>
+                </div>
+                <div class="stat-card">
+                    <div id="stat-speaking" class="stat-val">00:00</div>
+                    <div class="stat-lbl">Hablando</div>
+                </div>
+                <div class="stat-card">
+                    <div id="stat-pauses" class="stat-val">0</div>
+                    <div class="stat-lbl">Pausas largas</div>
+                </div>
+            </div>
+            <button class="modal-close-btn" onclick="returnToSetup()">Volver a Configuración</button>
+        </div>
+    </div>
+
+    <script>
+        /* =====================================================================
+           1. ESTADO GLOBAL Y PERFILES DE LOS 6 DOCENTES UNIVERSITARIOS
+           ===================================================================== */
+        const appState = {
+            gender: 'hombre',              // 'hombre' | 'mujer'
+            age: 50,                       // 38 | 50 | 65
+            scene: 'despacho-biblioteca',
+            manualVoiceURI: 'auto',
+            running: false,
+            paused: false,
+            speakingNow: false,
+            drinkingNow: false,
+            // Métricas en vivo
+            elapsedSec: 0,
+            talkingSec: 0,
+            longPauses: 0,
+            fillersDetected: 0,
+            fastBursts: 0,
+            silenceMs: 0,
+            continuousTalkMs: 0,
+            onsetTimestamps: [],
+            fillerCooldown: 0,
+            silenceCooldown: 0,
+            fastCooldown: 0,
+            idleCooldown: 3200
+        };
+
+        const DOCENTES = {
+            'hombre-65': {
+                name: 'Prof. Dr. Héctor Valdés',
+                summary: 'Prof. Dr. Héctor Valdés · Docente Titular (65 años) · Cálido y reflexivo',
+                testLine: 'Quiero que te tranquilices, esto va a ser más una charla que un examen.',
+                pitch: 0.36,
+                rate: 0.86,
+                silenceThresholdMs: 5600
+            },
+            'hombre-50': {
+                name: 'Prof. Dr. Ricardo Martínez',
+                summary: 'Prof. Dr. Ricardo Martínez · Docente Asociado (50 años) · Firme y analítico',
+                testLine: 'A ver, ordena la idea y explíquelo con claridad.',
+                pitch: 0.48,
+                rate: 0.95,
+                silenceThresholdMs: 4900
+            },
+            'hombre-38': {
+                name: 'Dr. Lucas Fernández',
+                summary: 'Dr. Lucas Fernández · Docente Adjunto (38 años) · Claro y directo',
+                testLine: 'Adelante, lo escucho. Vaya al punto principal.',
+                pitch: 0.60,
+                rate: 1.04,
+                silenceThresholdMs: 4300
+            },
+            'mujer-38': {
+                name: 'Dra. Sofía Méndez',
+                summary: 'Dra. Sofía Méndez · Docente Adjunta (38 años) · Expresiva y ágil',
+                testLine: 'Muy bien, continúe con el mecanismo siguiente.',
+                pitch: 1.14,
+                rate: 1.04,
+                silenceThresholdMs: 4200
+            },
+            'mujer-50': {
+                name: 'Prof. Dra. Valeria Quiroga',
+                summary: 'Prof. Dra. Valeria Quiroga · Docente Asociada (50 años) · Serena y firme',
+                testLine: '¿Está seguro de lo que acaba de decir? Revise ese concepto.',
+                pitch: 1.00,
+                rate: 0.96,
+                silenceThresholdMs: 4800
+            },
+            'mujer-65': {
+                name: 'Prof. Dra. Elena Castellanos',
+                summary: 'Prof. Dra. Elena Castellanos · Docente Titular (65 años) · Pausada y con autoridad',
+                testLine: 'Explíquelo con sus propias palabras, tómese un segundo.',
+                pitch: 0.88,
+                rate: 0.88,
+                silenceThresholdMs: 5400
+            }
+        };
+
+        const SCRIPTS = {
+            openStandard: [
+                'Bueno, cuando quieras puedes comenzar.',
+                'Te escucho, desarrolla el tema con claridad.',
+                'Adelante, comience cuando esté listo.'
+            ],
+            openSeniorMale: [
+                'Quiero que te tranquilices, esto va a ser más una charla que un examen. Cuando estés listo, comienza a desarrollar el tema.'
+            ],
+            seniorMaleCalmAdvice: [
+                'Relájate, respira un segundo y continúa tranquilo.',
+                'No hace falta correr, vamos paso a paso.',
+                'Tómate un respiro, tienes tiempo para explicarlo con calma.'
+            ],
+            silencePrompts: [
+                'A ver, ordena la idea.',
+                '¿Qué quiso decir ahí?',
+                '¿Está seguro de lo que acaba de decir?',
+                'Explíquelo con sus propias palabras.',
+                'Algo le está faltando ahí...',
+                'Continúe...'
+            ],
+            fillerPrompts: [
+                'A ver, ordena la idea antes de continuar.',
+                '¿Qué quiso decir ahí exactamente?',
+                'Tómese un segundo y expréselo con claridad.',
+                '¿Está seguro de ese concepto?'
+            ],
+            fastPrompts: [
+                'Vaya más despacio, ordene los conceptos.',
+                'Deténgase un segundo y explíquelo claro.',
+                'No se apresure, vaya paso por paso.'
+            ]
+        };
+
+        function getActiveProfileKey() {
+            return `${appState.gender}-${appState.age}`;
+        }
+
+        /* =====================================================================
+           2. MOTOR DE VOZ OPTIMIZADO PARA IPAD / SAFARI (6 VOCES DIFERENCIADAS)
+           ===================================================================== */
+        let cachedVoices = [];
+        let activeUtteranceRef = null;
+        let speakTimerRef = null;
+        let bubbleHideTimeout = null;
+        let mouthAnimInterval = null;
+
+        const MALE_VOICE_NAMES = [
+            'jorge', 'juan', 'diego', 'carlos', 'alvaro', 'álvaro', 'pablo',
+            'raul', 'raúl', 'tomas', 'tomás', 'andres', 'andrés', 'grandpa',
+            'eddy', 'reed', 'rocko', 'male', 'hombre'
+        ];
+        const FEMALE_VOICE_NAMES = [
+            'monica', 'mónica', 'paulina', 'marisol', 'angelica', 'angélica',
+            'helena', 'sabina', 'laura', 'elvira', 'camila', 'grandma',
+            'flo', 'sandy', 'shelley', 'female', 'mujer'
+        ];
+
+        function classifyVoiceGender(voiceName) {
+            const n = (voiceName || '').toLowerCase();
+            const isMale = MALE_VOICE_NAMES.some(k => n.includes(k));
+            const isFemale = FEMALE_VOICE_NAMES.some(k => n.includes(k));
+            if (isMale && !isFemale) return 'hombre';
+            if (isFemale && !isMale) return 'mujer';
+            return 'desconocido';
+        }
+
+        function populateSystemVoices() {
+            if (!('speechSynthesis' in window)) return;
+            const all = window.speechSynthesis.getVoices() || [];
+            if (!all.length) return;
+            cachedVoices = all;
+
+            const select = document.getElementById('system-voice-selector');
+            const tip = document.getElementById('ipad-voice-tip');
+            if (!select) return;
+
+            const previousVal = select.value || 'auto';
+            select.innerHTML = '<option value="auto">Automática según docente</option>';
+
+            const esVoices = all.filter(v => (v.lang || '').toLowerCase().startsWith('es'));
+            const displayList = esVoices.length ? esVoices : all;
+
+            let maleCount = 0;
+            displayList.forEach(v => {
+                const g = classifyVoiceGender(v.name);
+                if (g === 'hombre') maleCount++;
+                const tag = g === 'hombre' ? 'Masculina' : (g === 'mujer' ? 'Femenina' : 'Estándar');
+                const opt = document.createElement('option');
+                opt.value = v.voiceURI;
+                opt.textContent = `${v.name} [${tag}] (${v.lang})`;
+                select.appendChild(opt);
+            });
+
+            if (tip) {
+                tip.classList.toggle('visible', maleCount === 0);
+            }
+
+            if ([...select.options].some(o => o.value === previousVal)) {
+                select.value = previousVal;
+            }
+        }
+
+        if ('speechSynthesis' in window) {
+            populateSystemVoices();
+            window.speechSynthesis.onvoiceschanged = populateSystemVoices;
+            // Reintentos asíncronos para Safari en iPadOS
+            setTimeout(populateSystemVoices, 250);
+            setTimeout(populateSystemVoices, 900);
+            setTimeout(populateSystemVoices, 2000);
+        }
+
+        function selectManualVoice(uri) {
+            appState.manualVoiceURI = uri || 'auto';
+        }
+
+        function resolveVoiceForCurrentProfile() {
+            if (!cachedVoices.length) populateSystemVoices();
+            if (!cachedVoices.length) return null;
+
+            if (appState.manualVoiceURI && appState.manualVoiceURI !== 'auto') {
+                const manual = cachedVoices.find(v => v.voiceURI === appState.manualVoiceURI);
+                if (manual) return manual;
+            }
+
+            const esPool = cachedVoices.filter(v => (v.lang || '').toLowerCase().startsWith('es'));
+            const pool = esPool.length ? esPool : cachedVoices;
+
+            const ageIndex = appState.age === 65 ? 0 : (appState.age === 50 ? 1 : 2);
+
+            if (appState.gender === 'hombre') {
+                const males = pool.filter(v => classifyVoiceGender(v.name) === 'hombre');
+                if (males.length) {
+                    return males[ageIndex % males.length];
+                }
+                const neutral = pool.filter(v => classifyVoiceGender(v.name) !== 'mujer');
+                if (neutral.length) {
+                    return neutral[ageIndex % neutral.length];
+                }
+                return pool[ageIndex % pool.length];
+            } else {
+                const females = pool.filter(v => classifyVoiceGender(v.name) === 'mujer');
+                if (females.length) {
+                    return females[ageIndex % females.length];
+                }
+                return pool[(ageIndex + 1) % pool.length];
+            }
+        }
+
+        function speakLine(text, onDone) {
+            const prof = DOCENTES[getActiveProfileKey()];
+            const bubble = document.getElementById('bubble-wrap');
+            document.getElementById('bubble-author').textContent = prof.name;
+            document.getElementById('bubble-text').textContent = text;
+            bubble.classList.add('show');
+
+            clearTimeout(bubbleHideTimeout);
+            clearTimeout(speakTimerRef);
+            clearInterval(mouthAnimInterval);
+
+            const cavity = document.getElementById('mouth-cavity');
+            appState.speakingNow = true;
+
+            mouthAnimInterval = setInterval(() => {
+                const ry = 2.0 + Math.random() * 6.8;
+                cavity.setAttribute('ry', ry.toFixed(1));
+            }, 115);
+
+            let completed = false;
+            const finishSpeech = () => {
+                if (completed) return;
+                completed = true;
+                clearInterval(mouthAnimInterval);
+                cavity.setAttribute('ry', '0');
+                appState.speakingNow = false;
+                activeUtteranceRef = null;
+                bubbleHideTimeout = setTimeout(() => {
+                    bubble.classList.remove('show');
+                }, 2600);
+                if (typeof onDone === 'function') onDone();
+            };
+
+            if (!('speechSynthesis' in window)) {
+                setTimeout(finishSpeech, Math.max(2000, text.length * 60));
+                return;
+            }
+
+            // Cancelación limpia + pausa de 50ms para Safari en iPadOS
+            try {
+                window.speechSynthesis.cancel();
+            } catch (_) {}
+
+            speakTimerRef = setTimeout(() => {
+                try {
+                    const utter = new SpeechSynthesisUtterance(text);
+                    // Retención global para evitar recolección de basura en iOS
+                    activeUtteranceRef = utter;
+
+                    const selectedVoice = resolveVoiceForCurrentProfile();
+                    if (selectedVoice) {
+                        utter.voice = selectedVoice;
+                        // Igualar utterance.lang a selectedVoice.lang evita que Safari pise la voz masculina
+                        utter.lang = selectedVoice.lang;
+                    } else {
+                        utter.lang = 'es-ES';
+                    }
+
+                    utter.pitch = prof.pitch;
+                    utter.rate = prof.rate;
+                    utter.volume = 1.0;
+
+                    utter.onboundary = () => {
+                        const ry = 3.2 + Math.random() * 6.2;
+                        cavity.setAttribute('ry', ry.toFixed(1));
+                    };
+
+                    utter.onend = finishSpeech;
+                    utter.onerror = finishSpeech;
+
+                    window.speechSynthesis.speak(utter);
+
+                    const fallbackMs = Math.max(2600, Math.round((text.length * 80) / prof.rate) + 1200);
+                    setTimeout(() => {
+                        if (!completed) finishSpeech();
+                    }, fallbackMs);
+                } catch (_) {
+                    finishSpeech();
+                }
+            }, 50);
+        }
+
+        /* =====================================================================
+           3. SONIDO AMBIENTAL SUTIL SINTETIZADO (LAPICERA, TAZA Y AULA)
+           ===================================================================== */
+        let ambientCtx = null;
+
+        function startSubtleAmbience() {
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return;
+                if (!ambientCtx) ambientCtx = new Ctx();
+                if (ambientCtx.state === 'suspended') ambientCtx.resume();
+
+                const bufferSize = ambientCtx.sampleRate * 2;
+                const noiseBuffer = ambientCtx.createBuffer(1, bufferSize, ambientCtx.sampleRate);
+                const data = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * 0.14;
+                }
+
+                const noiseSource = ambientCtx.createBufferSource();
+                noiseSource.buffer = noiseBuffer;
+                noiseSource.loop = true;
+
+                const lowpass = ambientCtx.createBiquadFilter();
+                lowpass.type = 'lowpass';
+                lowpass.frequency.value = 175;
+
+                const gainNode = ambientCtx.createGain();
+                gainNode.gain.value = 0.011;
+
+                noiseSource.connect(lowpass);
+                lowpass.connect(gainNode);
+                gainNode.connect(ambientCtx.destination);
+                noiseSource.start();
+            } catch (_) {}
+        }
+
+        function stopSubtleAmbience() {
+            if (ambientCtx) {
+                try { ambientCtx.close(); } catch (_) {}
+                ambientCtx = null;
+            }
+        }
+
+        function playPenScratchSfx() {
+            if (appState.speakingNow || !ambientCtx) return;
+            try {
+                const t = ambientCtx.currentTime;
+                [0, 0.19].forEach(offset => {
+                    const osc = ambientCtx.createOscillator();
+                    const g = ambientCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(1400, t + offset);
+                    osc.frequency.exponentialRampToValueAtTime(600, t + offset + 0.05);
+                    g.gain.setValueAtTime(0.012, t + offset);
+                    g.gain.exponentialRampToValueAtTime(0.0001, t + offset + 0.06);
+                    osc.connect(g);
+                    g.connect(ambientCtx.destination);
+                    osc.start(t + offset);
+                    osc.stop(t + offset + 0.065);
+                });
+            } catch (_) {}
+        }
+
+        function playCupSaucerSfx() {
+            if (appState.speakingNow || !ambientCtx) return;
+            try {
+                const t = ambientCtx.currentTime + 2.55;
+                const osc = ambientCtx.createOscillator();
+                const g = ambientCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(2350, t);
+                osc.frequency.exponentialRampToValueAtTime(1250, t + 0.09);
+                g.gain.setValueAtTime(0.015, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+                osc.connect(g);
+                g.connect(ambientCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.11);
+            } catch (_) {}
+        }
+
+        /* =====================================================================
+           4. CONTROLES DE LA PANTALLA DE CONFIGURACIÓN INICIAL
+           ===================================================================== */
+        function selectGender(gender) {
+            appState.gender = gender;
+            document.getElementById('gender-male-btn').classList.toggle('active', gender === 'hombre');
+            document.getElementById('gender-female-btn').classList.toggle('active', gender === 'mujer');
+            renderCharacterSVG();
+        }
+
+        function selectAge(age) {
+            appState.age = age;
+            [38, 50, 65].forEach(val => {
+                document.getElementById(`age-${val}-btn`).classList.toggle('active', val === age);
+            });
+            renderCharacterSVG();
+        }
+
+        function selectScene(sceneId) {
+            appState.scene = sceneId;
+            document.body.setAttribute('data-scene', sceneId);
+            const svg = document.getElementById('backdrop-svg');
+
+            if (sceneId === 'despacho-biblioteca') {
+                svg.innerHTML = `
+                    <rect x="130" y="65" width="320" height="585" fill="#1e130e" stroke="#4a2e1d" stroke-width="8"/>
+                    <rect x="990" y="65" width="320" height="585" fill="#1e130e" stroke="#4a2e1d" stroke-width="8"/>
+                    <line x1="130" y1="210" x2="450" y2="210" stroke="#4a2e1d" stroke-width="8"/>
+                    <line x1="130" y1="355" x2="450" y2="355" stroke="#4a2e1d" stroke-width="8"/>
+                    <line x1="990" y1="210" x2="1310" y2="210" stroke="#4a2e1d" stroke-width="8"/>
+                    <line x1="990" y1="355" x2="1310" y2="355" stroke="#4a2e1d" stroke-width="8"/>
+                    <rect x="160" y="136" width="28" height="68" fill="#7f1d1d"/>
+                    <rect x="194" y="144" width="24" height="60" fill="#1e3a8a"/>
+                    <rect x="224" y="132" width="32" height="72" fill="#065f46"/>
+                    <rect x="1020" y="136" width="30" height="68" fill="#92400e"/>
+                    <rect x="1056" y="142" width="26" height="62" fill="#312e81"/>
+                    <circle cx="720" cy="175" r="44" fill="rgba(0,0,0,0.28)" stroke="#a8a29e" stroke-width="4"/>
+                    <line x1="720" y1="175" x2="720" y2="146" stroke="#e7e5e4" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="720" y1="175" x2="740" y2="175" stroke="#e7e5e4" stroke-width="3" stroke-linecap="round"/>
+                `;
+            } else if (sceneId === 'aula-magna') {
+                svg.innerHTML = `
+                    <rect x="200" y="85" width="1040" height="450" rx="14" fill="#133326" stroke="#78350f" stroke-width="14"/>
+                    <line x1="250" y1="155" x2="540" y2="155" stroke="rgba(255,255,255,0.18)" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="250" y1="200" x2="470" y2="200" stroke="rgba(255,255,255,0.12)" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="1070" cy="240" r="76" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3"/>
+                `;
+            } else if (sceneId === 'mesa-ventanal') {
+                svg.innerHTML = `
+                    <rect x="170" y="70" width="1100" height="510" rx="12" fill="rgba(186,230,253,0.12)" stroke="rgba(255,255,255,0.22)" stroke-width="10"/>
+                    <line x1="536" y1="70" x2="536" y2="580" stroke="rgba(255,255,255,0.2)" stroke-width="8"/>
+                    <line x1="904" y1="70" x2="904" y2="580" stroke="rgba(255,255,255,0.2)" stroke-width="8"/>
+                    <line x1="170" y1="325" x2="1270" y2="325" stroke="rgba(255,255,255,0.2)" stroke-width="8"/>
+                `;
+            } else if (sceneId === 'laboratorio-anfiteatro') {
+                svg.innerHTML = `
+                    <path d="M 70 470 Q 720 355 1370 470" fill="none" stroke="rgba(255,255,255,0.09)" stroke-width="18"/>
+                    <path d="M 130 370 Q 720 270 1310 370" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="14"/>
+                    <path d="M 190 275 Q 720 190 1250 275" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="10"/>
+                `;
+            } else if (sceneId === 'sala-profesores') {
+                svg.innerHTML = `
+                    <rect x="240" y="110" width="290" height="205" rx="8" fill="rgba(0,0,0,0.22)" stroke="#92400e" stroke-width="8"/>
+                    <rect x="910" y="110" width="290" height="205" rx="8" fill="rgba(0,0,0,0.22)" stroke="#92400e" stroke-width="8"/>
+                `;
+            } else if (sceneId === 'catedra-clasica') {
+                svg.innerHTML = `
+                    <rect x="150" y="70" width="1140" height="580" rx="12" fill="rgba(15,10,8,0.45)" stroke="#4a2e1d" stroke-width="8"/>
+                    <line x1="150" y1="220" x2="1290" y2="220" stroke="#4a2e1d" stroke-width="7"/>
+                    <line x1="150" y1="370" x2="1290" y2="370" stroke="#4a2e1d" stroke-width="7"/>
+                `;
+            } else {
+                svg.innerHTML = `
+                    <rect x="190" y="95" width="1060" height="450" rx="12" fill="rgba(15,23,42,0.45)" stroke="rgba(148,163,184,0.22)" stroke-width="4"/>
+                    <line x1="190" y1="240" x2="1250" y2="240" stroke="rgba(148,163,184,0.15)" stroke-width="3"/>
+                    <line x1="190" y1="385" x2="1250" y2="385" stroke="rgba(148,163,184,0.15)" stroke-width="3"/>
+                `;
+            }
+        }
+
+        function testCurrentProfileVoice() {
+            const prof = DOCENTES[getActiveProfileKey()];
+            triggerNodYes();
+            speakLine(prof.testLine);
+        }
+
+        /* =====================================================================
+           5. RENDERIZADO SVG DE LOS 6 DOCENTES (CABELLO BIEN ENCUADRADO)
+           ===================================================================== */
+        function renderCharacterSVG() {
+            const key = getActiveProfileKey();
+            const prof = DOCENTES[key];
+            document.getElementById('profile-summary').textContent = prof.summary;
+
+            const isWoman = appState.gender === 'mujer';
+
+            const faceContour = document.getElementById('face-contour');
+            const cheeks = document.getElementById('cheeks-group');
+            const earrings = document.getElementById('earrings-group');
+            const lashesL = document.getElementById('lashes-l');
+            const lashesR = document.getElementById('lashes-r');
+            const browL = document.getElementById('brow-l');
+            const browR = document.getElementById('brow-r');
+            const mouthLine = document.getElementById('mouth-line');
+            const hairBack = document.getElementById('hair-back');
+            const hairFront = document.getElementById('hair-front');
+            const outfit = document.getElementById('outfit-group');
+            const glasses = document.getElementById('glasses-group');
+            const wrinkles = document.getElementById('wrinkles-group');
+            const beard = document.getElementById('beard-group');
+
+            hairBack.innerHTML = '';
+            hairFront.innerHTML = '';
+            outfit.innerHTML = '';
+            glasses.innerHTML = '';
+            wrinkles.innerHTML = '';
+            beard.innerHTML = '';
+
+            if (isWoman) {
+                faceContour.setAttribute('d', 'M 236 154 C 236 102, 364 102, 364 154 C 364 224, 338 270, 300 270 C 262 270, 236 224, 236 154 Z');
+                cheeks.setAttribute('opacity', '0.32');
+                earrings.style.display = 'block';
+                lashesL.style.display = 'block';
+                lashesR.style.display = 'block';
+                browL.setAttribute('stroke-width', '2.8');
+                browR.setAttribute('stroke-width', '2.8');
+                mouthLine.setAttribute('stroke', '#b84a4a');
+
+                if (appState.age === 38) {
+                    // Mujer 38 (Adjunta): Melena suelta ondulada castaña, blusa crema con blazer coral suave
+                    browL.setAttribute('stroke', '#3f2a1d');
+                    browR.setAttribute('stroke', '#3f2a1d');
+                    hairBack.innerHTML = `
+                        <path d="M 218 152 C 202 220, 202 308, 224 352 L 376 352 C 398 308, 398 220, 382 152 Z" fill="#4a2e1e"/>
+                        <path d="M 212 238 Q 200 286, 218 338" fill="none" stroke="#362013" stroke-width="5" stroke-linecap="round"/>
+                        <path d="M 388 238 Q 400 286, 382 338" fill="none" stroke="#362013" stroke-width="5" stroke-linecap="round"/>
+                    `;
+                    hairFront.innerHTML = `
+                        <path d="M 230 165 C 226 98, 374 98, 370 165 C 354 125, 324 118, 296 132 C 270 142, 245 135, 230 165 Z" fill="#5c3a26"/>
+                    `;
+                    outfit.innerHTML = `
+                        <path d="M 162 454 C 166 346, 214 316, 300 316 C 386 316, 434 346, 438 454 Z" fill="#e07a5f" stroke="#c0563c" stroke-width="1.8"/>
+                        <path d="M 258 318 L 300 408 L 342 318 Z" fill="#fef3c7"/>
+                        <path d="M 253 318 L 286 424 L 238 394 Z" fill="#f29b82"/>
+                        <path d="M 347 318 L 314 424 L 362 394 Z" fill="#f29b82"/>
+                    `;
+                } else if (appState.age === 50) {
+                    // Mujer 50 (Asociada): Rodete clásico elegante, blazer azul petróleo con pañuelo, lentes finos
+                    browL.setAttribute('stroke', '#475569');
+                    browR.setAttribute('stroke', '#475569');
+                    hairBack.innerHTML = `
+                        <circle cx="300" cy="88" r="30" fill="#475569" stroke="#334155" stroke-width="1.8"/>
+                        <path d="M 226 156 C 222 204, 228 242, 244 258 L 356 258 C 372 242, 378 204, 374 156 Z" fill="#475569"/>
+                    `;
+                    hairFront.innerHTML = `
+                        <path d="M 232 162 C 232 100, 368 100, 368 162 C 352 124, 318 118, 300 126 C 282 118, 248 124, 232 162 Z" fill="#64748b"/>
+                    `;
+                    glasses.innerHTML = `
+                        <path d="M 246 190 Q 266 200 286 190" fill="none" stroke="#0f766e" stroke-width="2.4"/>
+                        <path d="M 314 190 Q 334 200 354 190" fill="none" stroke="#0f766e" stroke-width="2.4"/>
+                        <line x1="286" y1="188" x2="314" y2="188" stroke="#0f766e" stroke-width="2.2"/>
+                    `;
+                    wrinkles.innerHTML = `
+                        <path d="M 250 214 Q 245 226 252 235" fill="none" stroke="#c98e6b" stroke-width="1.4"/>
+                        <path d="M 350 214 Q 355 226 348 235" fill="none" stroke="#c98e6b" stroke-width="1.4"/>
+                    `;
+                    outfit.innerHTML = `
+                        <path d="M 160 454 C 164 346, 212 316, 300 316 C 388 316, 436 346, 440 454 Z" fill="#0f766e" stroke="#115e59" stroke-width="1.8"/>
+                        <path d="M 264 318 L 300 416 L 336 318 Z" fill="#f8fafc"/>
+                        <path d="M 272 324 Q 300 356 328 324 L 316 358 L 284 358 Z" fill="#fbbf24" stroke="#d97706" stroke-width="1.2"/>
+                    `;
+                } else {
+                    // Mujer 65 (Titular): Corte canoso elegante con volumen, cárdigan tejido sobre blusa de cuello alto, collar de perlas
+                    browL.setAttribute('stroke', '#94a3b8');
+                    browR.setAttribute('stroke', '#94a3b8');
+                    hairFront.innerHTML = `
+                        <path d="M 224 170 C 218 96, 382 96, 376 170 C 362 128, 332 118, 300 123 C 268 118, 238 128, 224 170 Z" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1.5"/>
+                        <path d="M 238 132 Q 266 120 296 128" fill="none" stroke="#94a3b8" stroke-width="1.8"/>
+                        <path d="M 304 128 Q 334 120 362 132" fill="none" stroke="#94a3b8" stroke-width="1.8"/>
+                    `;
+                    glasses.innerHTML = `
+                        <rect x="244" y="174" width="46" height="28" rx="9" fill="rgba(255,255,255,0.12)" stroke="#b45309" stroke-width="2.5"/>
+                        <rect x="310" y="174" width="46" height="28" rx="9" fill="rgba(255,255,255,0.12)" stroke="#b45309" stroke-width="2.5"/>
+                        <line x1="290" y1="186" x2="310" y2="186" stroke="#b45309" stroke-width="2.5"/>
+                    `;
+                    wrinkles.innerHTML = `
+                        <path d="M 270 144 Q 300 140 330 144" fill="none" stroke="#be8360" stroke-width="1.4"/>
+                        <path d="M 246 210 Q 240 228 250 242" fill="none" stroke="#be8360" stroke-width="1.6"/>
+                        <path d="M 354 210 Q 360 228 350 242" fill="none" stroke="#be8360" stroke-width="1.6"/>
+                    `;
+                    outfit.innerHTML = `
+                        <path d="M 160 454 C 164 346, 212 316, 300 316 C 388 316, 436 346, 440 454 Z" fill="#6b21a8" stroke="#4c1d95" stroke-width="1.8"/>
+                        <path d="M 264 316 L 300 416 L 336 316 Z" fill="#f3e8ff"/>
+                        <rect x="274" y="314" width="52" height="20" rx="6" fill="#e9d5ff"/>
+                        <circle cx="282" cy="346" r="3.4" fill="#fffbeb" stroke="#cbd5e1" stroke-width="1"/>
+                        <circle cx="291" cy="352" r="3.4" fill="#fffbeb" stroke="#cbd5e1" stroke-width="1"/>
+                        <circle cx="300" cy="354" r="3.4" fill="#fffbeb" stroke="#cbd5e1" stroke-width="1"/>
+                        <circle cx="309" cy="352" r="3.4" fill="#fffbeb" stroke="#cbd5e1" stroke-width="1"/>
+                        <circle cx="318" cy="346" r="3.4" fill="#fffbeb" stroke="#cbd5e1" stroke-width="1"/>
+                    `;
+                }
+            } else {
+                faceContour.setAttribute('d', 'M 230 152 C 230 96, 370 96, 370 152 C 370 232, 348 274, 300 274 C 252 274, 230 232, 230 152 Z');
+                cheeks.setAttribute('opacity', '0.14');
+                earrings.style.display = 'none';
+                lashesL.style.display = 'none';
+                lashesR.style.display = 'none';
+                browL.setAttribute('stroke-width', '4.4');
+                browR.setAttribute('stroke-width', '4.4');
+                mouthLine.setAttribute('stroke', '#7c2d12');
+
+                if (appState.age === 38) {
+                    // Hombre 38 (Adjunto): Camisa celeste moderna, saco casual azul marino, barba corta cuidada
+                    browL.setAttribute('stroke', '#291d16');
+                    browR.setAttribute('stroke', '#291d16');
+                    hairFront.innerHTML = `
+                        <path d="M 228 158 C 226 94, 374 94, 372 158 C 360 122, 330 114, 300 118 C 270 114, 240 122, 228 158 Z" fill="#291d16"/>
+                    `;
+                    beard.innerHTML = `
+                        <path d="M 235 208 C 237 256, 266 274, 300 274 C 334 274, 363 256, 365 208 C 354 230, 329 248, 300 248 C 271 248, 246 230, 235 208 Z" fill="#291d16" opacity="0.34"/>
+                    `;
+                    outfit.innerHTML = `
+                        <path d="M 162 454 C 166 346, 214 316, 300 316 C 386 316, 434 346, 438 454 Z" fill="#1e3a8a" stroke="#172554" stroke-width="1.8"/>
+                        <path d="M 262 316 L 300 408 L 338 316 Z" fill="#bae6fd"/>
+                        <path d="M 268 316 L 300 356 L 332 316 Z" fill="#e8b694"/>
+                    `;
+                } else if (appState.age === 50) {
+                    // Hombre 50 (Asociado): Traje gris oscuro, corbata bordó, anteojos rectangulares, entradas leves
+                    browL.setAttribute('stroke', '#334155');
+                    browR.setAttribute('stroke', '#334155');
+                    hairFront.innerHTML = `
+                        <path d="M 228 160 C 228 102, 372 102, 372 160 C 363 128, 348 124, 334 134 C 320 118, 280 118, 266 134 C 252 124, 237 128, 228 160 Z" fill="#334155"/>
+                    `;
+                    glasses.innerHTML = `
+                        <rect x="244" y="174" width="46" height="27" rx="5" fill="rgba(255,255,255,0.1)" stroke="#0f172a" stroke-width="2.6"/>
+                        <rect x="310" y="174" width="46" height="27" rx="5" fill="rgba(255,255,255,0.1)" stroke="#0f172a" stroke-width="2.6"/>
+                        <line x1="290" y1="185" x2="310" y2="185" stroke="#0f172a" stroke-width="2.6"/>
+                    `;
+                    wrinkles.innerHTML = `
+                        <path d="M 266 144 Q 300 140 334 144" fill="none" stroke="#c58b67" stroke-width="1.5"/>
+                        <path d="M 248 212 Q 243 226 250 236" fill="none" stroke="#c58b67" stroke-width="1.5"/>
+                        <path d="M 352 212 Q 357 226 350 236" fill="none" stroke="#c58b67" stroke-width="1.5"/>
+                    `;
+                    outfit.innerHTML = `
+                        <path d="M 160 454 C 164 346, 212 316, 300 316 C 388 316, 436 346, 440 454 Z" fill="#334155" stroke="#0f172a" stroke-width="1.8"/>
+                        <path d="M 260 316 L 300 412 L 340 316 Z" fill="#f8fafc"/>
+                        <polygon points="293,328 307,328 311,400 300,412 289,400" fill="#881337"/>
+                    `;
+                } else {
+                    // Hombre 65 (Titular): Saco de tweed marrón, chaleco tejido, camisa blanca, cabello canoso abundante y lentes redondos
+                    browL.setAttribute('stroke', '#cbd5e1');
+                    browR.setAttribute('stroke', '#cbd5e1');
+                    hairFront.innerHTML = `
+                        <path d="M 224 166 C 222 96, 378 96, 376 166 C 363 128, 346 122, 330 132 C 314 116, 286 116, 270 132 C 254 122, 237 128, 224 166 Z" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+                    `;
+                    glasses.innerHTML = `
+                        <circle cx="266" cy="188" r="22" fill="rgba(255,255,255,0.14)" stroke="#1e293b" stroke-width="3.2"/>
+                        <circle cx="334" cy="188" r="22" fill="rgba(255,255,255,0.14)" stroke="#1e293b" stroke-width="3.2"/>
+                        <line x1="288" y1="186" x2="312" y2="186" stroke="#1e293b" stroke-width="3.2"/>
+                    `;
+                    wrinkles.innerHTML = `
+                        <path d="M 262 140 Q 300 134 338 140" fill="none" stroke="#b97d58" stroke-width="1.6"/>
+                        <path d="M 268 148 Q 300 144 332 148" fill="none" stroke="#b97d58" stroke-width="1.4"/>
+                        <path d="M 244 208 Q 236 228 248 244" fill="none" stroke="#b97d58" stroke-width="1.8"/>
+                        <path d="M 356 208 Q 364 228 352 244" fill="none" stroke="#b97d58" stroke-width="1.8"/>
+                    `;
+                    outfit.innerHTML = `
+                        <path d="M 160 454 C 164 346, 212 316, 300 316 C 388 316, 436 346, 440 454 Z" fill="#5c3a21" stroke="#2e1a0c" stroke-width="1.8"/>
+                        <path d="M 258 316 L 300 414 L 342 316 Z" fill="#d6c7b2"/>
+                        <path d="M 276 316 L 300 364 L 324 316 Z" fill="#f8fafc"/>
+                    `;
+                }
+            }
+        }
+
+        /* =====================================================================
+           6. ANIMACIONES FACIALES Y CORPORALES ("VIDA PROPIA")
+           ===================================================================== */
+        function setExpression(stateName) {
+            const browL = document.getElementById('brow-l');
+            const browR = document.getElementById('brow-r');
+            const mouth = document.getElementById('mouth-line');
+
+            if (stateName === 'warm') {
+                browL.setAttribute('d', 'M 246 164 Q 266 157 285 164');
+                browR.setAttribute('d', 'M 315 164 Q 334 157 354 164');
+                mouth.setAttribute('d', 'M 278 239 Q 300 250 322 239');
+            } else if (stateName === 'doubt') {
+                browL.setAttribute('d', 'M 244 157 Q 266 148 285 161');
+                browR.setAttribute('d', 'M 315 171 Q 334 170 354 169');
+                mouth.setAttribute('d', 'M 281 242 Q 301 236 319 243');
+            } else if (stateName === 'serious') {
+                browL.setAttribute('d', 'M 246 165 L 285 173');
+                browR.setAttribute('d', 'M 315 173 L 354 165');
+                mouth.setAttribute('d', 'M 281 243 Q 300 239 319 243');
+            } else {
+                browL.setAttribute('d', 'M 246 168 Q 266 162 285 168');
+                browR.setAttribute('d', 'M 315 168 Q 334 162 354 168');
+                mouth.setAttribute('d', 'M 280 240 Q 300 243 320 240');
+            }
+        }
+
+        function orientHeadAndEyes(ex, ey, hx, hrot) {
+            document.getElementById('pupil-l').setAttribute('transform', `translate(${ex}, ${ey})`);
+            document.getElementById('pupil-r').setAttribute('transform', `translate(${ex}, ${ey})`);
+            const head = document.getElementById('head-group');
+            head.style.setProperty('--hx', `${hx}px`);
+            head.style.setProperty('--hr', `${hrot}deg`);
+            head.style.transform = `translate(${hx}px, 0px) rotate(${hrot}deg)`;
+        }
+
+        function triggerNodYes() {
+            const head = document.getElementById('head-group');
+            head.classList.remove('do-yes', 'do-no');
+            void head.offsetWidth;
+            head.classList.add('do-yes');
+            setTimeout(() => head.classList.remove('do-yes'), 1200);
+        }
+
+        function triggerShakeNo() {
+            const head = document.getElementById('head-group');
+            head.classList.remove('do-yes', 'do-no');
+            void head.offsetWidth;
+            head.classList.add('do-no');
+            setTimeout(() => head.classList.remove('do-no'), 1200);
+        }
+
+        function triggerWriteAction() {
+            const hand = document.getElementById('pen-hand');
+            hand.classList.add('writing-now');
+            orientHeadAndEyes(2, 4, 3, 2);
+            playPenScratchSfx();
+            setTimeout(() => {
+                hand.classList.remove('writing-now');
+                orientHeadAndEyes(0, 0, 0, 0);
+            }, 2100);
+        }
+
+        function triggerDrinkAction() {
+            if (appState.drinkingNow || appState.speakingNow) return;
+            appState.drinkingNow = true;
+            const cup = document.getElementById('cup-hand');
+            cup.classList.remove('drinking-now');
+            void cup.offsetWidth;
+            cup.classList.add('drinking-now');
+            orientHeadAndEyes(-3, 2, -3, -2);
+            playCupSaucerSfx();
+            setTimeout(() => {
+                appState.drinkingNow = false;
+                orientHeadAndEyes(0, 0, 0, 0);
+            }, 3250);
+        }
+
+        function triggerCalmGesture() {
+            const hand = document.getElementById('calm-hand');
+            hand.classList.remove('calming-now');
+            void hand.offsetWidth;
+            hand.classList.add('calming-now');
+        }
+
+        function scheduleNaturalBlink() {
+            const delay = 2200 + Math.random() * 3200;
+            setTimeout(() => {
+                const l = document.getElementById('lid-l');
+                const r = document.getElementById('lid-r');
+                l.setAttribute('opacity', '1');
+                r.setAttribute('opacity', '1');
+                setTimeout(() => {
+                    l.setAttribute('opacity', '0');
+                    r.setAttribute('opacity', '0');
+                    scheduleNaturalBlink();
+                }, 130);
+            }, delay);
+        }
+
+        /* =====================================================================
+           7. SESIÓN EN PANTALLA COMPLETA Y ESCUCHA ACTIVA POR MICRÓFONO
+           ===================================================================== */
+        let micContext = null;
+        let micMediaStream = null;
+        let audioAnalyser = null;
+        let freqBins = null;
+        let recognitionEngine = null;
+        let lifeLoopTimer = null;
+        let clockTimer = null;
+        let wasUserSpeaking = false;
+
+        function randomPick(list) {
+            return list[Math.floor(Math.random() * list.length)];
+        }
+
+        function formatClock(sec) {
+            const m = String(Math.floor(sec / 60)).padStart(2, '0');
+            const s = String(sec % 60).padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        async function launchSession() {
+            appState.elapsedSec = 0;
+            appState.talkingSec = 0;
+            appState.longPauses = 0;
+            appState.fillersDetected = 0;
+            appState.fastBursts = 0;
+            appState.silenceMs = 0;
+            appState.continuousTalkMs = 0;
+            appState.onsetTimestamps = [];
+            appState.fillerCooldown = 0;
+            appState.silenceCooldown = 0;
+            appState.fastCooldown = 0;
+            appState.idleCooldown = 3400;
+            appState.running = true;
+            appState.paused = false;
+
+            document.body.classList.add('session-active');
+            document.getElementById('hud-clock').textContent = '00:00';
+            document.getElementById('hud-state-text').textContent = 'Mesa escuchando...';
+            document.getElementById('btn-pause-session').textContent = '⏸️ Pausa / Respiro';
+
+            startSubtleAmbience();
+
+            try {
+                micMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                micContext = new Ctx();
+                const micSrc = micContext.createMediaStreamSource(micMediaStream);
+                audioAnalyser = micContext.createAnalyser();
+                audioAnalyser.fftSize = 512;
+                micSrc.connect(audioAnalyser);
+                freqBins = new Uint8Array(audioAnalyser.frequencyBinCount);
+            } catch (_) {
+                document.getElementById('hud-state-text').textContent = 'Sin micrófono (activa permisos)';
+            }
+
+            setupFillerRecognition();
+
+            const isSeniorMale = (appState.gender === 'hombre' && appState.age === 65);
+            if (isSeniorMale) {
+                setExpression('warm');
+                triggerNodYes();
+                speakLine(randomPick(SCRIPTS.openSeniorMale));
+            } else {
+                setExpression('neutral');
+                orientHeadAndEyes(0, 0, 2, 1.5);
+                speakLine(randomPick(SCRIPTS.openStandard));
+            }
+
+            clearInterval(clockTimer);
+            clockTimer = setInterval(() => {
+                if (!appState.running || appState.paused) return;
+                appState.elapsedSec++;
+                document.getElementById('hud-clock').textContent = formatClock(appState.elapsedSec);
+            }, 1000);
+
+            clearInterval(lifeLoopTimer);
+            lifeLoopTimer = setInterval(runAutonomousBehavior, 200);
+        }
+
+        function setupFillerRecognition() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) return;
+            try {
+                recognitionEngine = new SR();
+                recognitionEngine.lang = 'es-ES';
+                recognitionEngine.continuous = true;
+                recognitionEngine.interimResults = true;
+
+                recognitionEngine.onresult = (evt) => {
+                    if (!appState.running || appState.paused || appState.speakingNow) return;
+                    const res = evt.results[evt.results.length - 1];
+                    const transcript = (res[0]?.transcript || '').toLowerCase();
+                    if (/\b(eh+|este+|o sea|mmm+|no s[eé]|digamos)\b/.test(transcript) && appState.fillerCooldown <= 0) {
+                        appState.fillerCooldown = 11500;
+                        appState.fillersDetected++;
+                        setExpression('doubt');
+                        triggerShakeNo();
+                        triggerWriteAction();
+                        const phrase = randomPick(SCRIPTS.fillerPrompts);
+                        setTimeout(() => {
+                            if (appState.running && !appState.paused && !appState.speakingNow) {
+                                speakLine(phrase, () => setExpression('neutral'));
+                            }
+                        }, 550);
+                    }
+                };
+
+                recognitionEngine.onend = () => {
+                    if (appState.running && !appState.paused) {
+                        try { recognitionEngine.start(); } catch (_) {}
+                    }
+                };
+
+                recognitionEngine.start();
+            } catch (_) {}
+        }
+
+        function runAutonomousBehavior() {
+            if (!appState.running || appState.paused) return;
+
+            const step = 200;
+            if (appState.fillerCooldown > 0) appState.fillerCooldown -= step;
+            if (appState.silenceCooldown > 0) appState.silenceCooldown -= step;
+            if (appState.fastCooldown > 0) appState.fastCooldown -= step;
+            if (appState.idleCooldown > 0) appState.idleCooldown -= step;
+
+            let level = 0;
+            if (audioAnalyser && freqBins) {
+                audioAnalyser.getByteFrequencyData(freqBins);
+                let sum = 0;
+                for (let i = 0; i < freqBins.length; i++) sum += freqBins[i];
+                level = sum / freqBins.length;
+            }
+
+            const dot = document.getElementById('mic-dot');
+            const userTalking = level > 18 && !appState.speakingNow;
+            const isSeniorMale = (appState.gender === 'hombre' && appState.age === 65);
+
+            if (userTalking) {
+                dot.classList.add('active-voice');
+                appState.talkingSec += 0.2;
+                appState.continuousTalkMs += step;
+                appState.silenceMs = 0;
+
+                if (!wasUserSpeaking) {
+                    appState.onsetTimestamps.push(Date.now());
+                }
+                const now = Date.now();
+                appState.onsetTimestamps = appState.onsetTimestamps.filter(ts => now - ts < 5000);
+
+                if ((appState.continuousTalkMs > 13000 || appState.onsetTimestamps.length >= 16) && appState.fastCooldown <= 0 && !appState.speakingNow) {
+                    appState.fastCooldown = 17500;
+                    appState.fastBursts++;
+                    appState.continuousTalkMs = 0;
+                    triggerCalmGesture();
+
+                    if (isSeniorMale) {
+                        setExpression('warm');
+                        triggerNodYes();
+                        speakLine(randomPick(SCRIPTS.seniorMaleCalmAdvice), () => setExpression('neutral'));
+                    } else {
+                        setExpression('serious');
+                        speakLine(randomPick(SCRIPTS.fastPrompts), () => setExpression('neutral'));
+                    }
+                }
+            } else {
+                dot.classList.remove('active-voice');
+                appState.continuousTalkMs = 0;
+                if (!appState.speakingNow) {
+                    appState.silenceMs += step;
+                }
+            }
+            wasUserSpeaking = userTalking;
+
+            // 1. Silencios incómodos largos
+            const prof = DOCENTES[getActiveProfileKey()];
+            if (appState.silenceMs >= prof.silenceThresholdMs && appState.silenceCooldown <= 0 && !appState.speakingNow) {
+                appState.silenceCooldown = 12000;
+                appState.longPauses++;
+                appState.silenceMs = 0;
+
+                if (Math.random() < 0.26 && !appState.drinkingNow) {
+                    triggerDrinkAction();
+                } else if (isSeniorMale) {
+                    setExpression('warm');
+                    triggerNodYes();
+                    speakLine('Relájate, respira un segundo y continúa tranquilo cuando estés listo.', () => setExpression('neutral'));
+                } else {
+                    setExpression('doubt');
+                    if (Math.random() > 0.45) triggerShakeNo();
+                    speakLine(randomPick(SCRIPTS.silencePrompts), () => setExpression('neutral'));
+                }
+                return;
+            }
+
+            // 2. Gestos autónomos naturales ("vida propia")
+            if (appState.idleCooldown <= 0 && !appState.speakingNow) {
+                appState.idleCooldown = 4200 + Math.random() * 4000;
+                const r = Math.random();
+
+                if (userTalking && r < 0.44) {
+                    setExpression(isSeniorMale ? 'warm' : 'neutral');
+                    triggerNodYes();
+                } else if (r < 0.64) {
+                    triggerWriteAction();
+                } else if (r < 0.80) {
+                    triggerDrinkAction();
+                } else {
+                    const side = Math.random() > 0.5 ? 1 : -1;
+                    orientHeadAndEyes(side * 5, 0, side * 9, side * 4);
+                    setTimeout(() => orientHeadAndEyes(0, 0, 0, 0), 2100);
+                }
+            }
+        }
+
+        function togglePauseSession() {
+            if (!appState.running) return;
+            appState.paused = !appState.paused;
+            const btn = document.getElementById('btn-pause-session');
+            if (appState.paused) {
+                btn.textContent = '▶️ Reanudar';
+                document.getElementById('hud-state-text').textContent = 'En pausa · Respira tranquilo';
+                document.getElementById('mic-dot').classList.remove('active-voice');
+                if ('speechSynthesis' in window) {
+                    try { window.speechSynthesis.cancel(); } catch (_) {}
+                }
+            } else {
+                btn.textContent = '⏸️ Pausa / Respiro';
+                document.getElementById('hud-state-text').textContent = 'Mesa escuchando...';
+                appState.silenceMs = 0;
+            }
+        }
+
+        /* =====================================================================
+           8. VEREDICTO FINAL DINÁMICO Y RETORNO A CONFIGURACIÓN
+           ===================================================================== */
+        function computeFinalVerdict() {
+            const total = Math.max(1, appState.elapsedSec);
+            const ratio = appState.talkingSec / total;
+            const pauses = appState.longPauses;
+            const fillers = appState.fillersDetected;
+            const fast = appState.fastBursts;
+
+            if (fast >= 2) {
+                return {
+                    tag: 'Veredicto de Mesa · Ritmo Acelerado',
+                    heading: 'Buen contenido, pero muy acelerado',
+                    quote: 'Se nota que sabes, pero vas tan rápido y con tantas pausas sueltas que te juegas en contra; baja un cambio y articula con calma.'
+                };
+            }
+            if (pauses >= 3 || (total >= 20 && ratio < 0.35)) {
+                return {
+                    tag: 'Veredicto de Mesa · Pausas Frecuentes',
+                    heading: 'Falta continuidad en la exposición',
+                    quote: 'Se nota que tienes la idea, pero haces muchas pausas; ordena la secuencia y nos vemos en la siguiente mesa.'
+                };
+            }
+            if (fillers >= 2 || (total >= 25 && ratio < 0.55)) {
+                return {
+                    tag: 'Veredicto de Mesa · Profundidad Clínica',
+                    heading: 'Falta precisión en puntos clave',
+                    quote: 'Felicidades, tienes la idea general, pero siento que te falta profundizar en puntos clave; recuerda que en medicina tienes una vida en tus manos.'
+                };
+            }
+            return {
+                tag: 'Veredicto de Mesa · Buen Desempeño',
+                heading: 'Buen recorrido general',
+                quote: 'Me gustó el recorrido, se nota que lo trabajaste, aunque todavía faltan afinar algunos detalles para cerrarlo redondo.'
+            };
+        }
+
+        function endSession() {
+            appState.running = false;
+            appState.paused = false;
+            clearInterval(lifeLoopTimer);
+            clearInterval(clockTimer);
+            stopSubtleAmbience();
+
+            if (recognitionEngine) {
+                try { recognitionEngine.stop(); } catch (_) {}
+                recognitionEngine = null;
+            }
+            if (micMediaStream) {
+                micMediaStream.getTracks().forEach(track => track.stop());
+                micMediaStream = null;
+            }
+            if (micContext) {
+                try { micContext.close(); } catch (_) {}
+                micContext = null;
+            }
+
+            document.getElementById('mic-dot').classList.remove('active-voice');
+
+            const verdict = computeFinalVerdict();
+            document.getElementById('verdict-tag').textContent = verdict.tag;
+            document.getElementById('verdict-heading').textContent = verdict.heading;
+            document.getElementById('verdict-quote').textContent = `«${verdict.quote}»`;
+            document.getElementById('stat-duration').textContent = formatClock(appState.elapsedSec);
+            document.getElementById('stat-speaking').textContent = formatClock(Math.round(appState.talkingSec));
+            document.getElementById('stat-pauses').textContent = String(appState.longPauses);
+
+            setExpression('neutral');
+            triggerNodYes();
+
+            const modal = document.getElementById('verdict-modal');
+            speakLine(verdict.quote, () => {
+                modal.classList.add('open');
+            });
+        }
+
+        function returnToSetup() {
+            document.getElementById('verdict-modal').classList.remove('open');
+            document.body.classList.remove('session-active');
+            setExpression('neutral');
+            orientHeadAndEyes(0, 0, 0, 0);
+        }
+
+        /* =====================================================================
+           9. INICIALIZACIÓN AL CARGAR LA VENTANA
+           ===================================================================== */
+        window.onload = function () {
+            populateSystemVoices();
+            selectScene('despacho-biblioteca');
+            renderCharacterSVG();
+            scheduleNaturalBlink();
+        };
+    </script>
+</body>
+</html>
